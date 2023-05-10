@@ -1,13 +1,3 @@
-/**
- * @file context.hpp
- * @brief 代码生成上下文环境头文件,定义了用于代码生成的上下文环境类 CodegenContext，包含 LLVM IR 代码生成所需的一些信息，如符号表、优化标志等。
- * @author 滕宇航 胡少卿 胡亦凡 于可欣 陈迁 黄卓琳 
- * @version 1.0
- * @date 2023-05-10
- * 
- * @copyright Copyright (c) 2023  北京邮电大学计算机学院2020211312班
- * 
- */
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
