@@ -21,7 +21,12 @@ using namespace spc;
 using namespace llvm;
 
 extern YYSTYPE program;
-
+/**
+ * @brief 根据指定的编译输出类型，将LLVM IR代码编译成目标文件、汇编代码或机器码等形式。
+ * @param dest 输出流对象
+ * @param type 编译输出类型
+ * @param module LLVM IR代码的模块
+ */
 void emit_target(raw_fd_ostream &dest, TargetMachine::CodeGenFileType type, Module &module) {
   // 初始化环境信息
   InitializeAllTargetInfos();
@@ -59,7 +64,12 @@ void emit_target(raw_fd_ostream &dest, TargetMachine::CodeGenFileType type, Modu
   pass.run(module);
   dest.flush();
 }
-
+/**
+ * @brief 编译器的主函数，用于解析命令行参数、执行代码生成操作。
+ * @param argc 命令行参数个数
+ * @param argv 命令行参数列表
+ * @return int 
+ */
 int main(int argc, char *argv[]) {
   enum class Target { UNDEFINED, LLVM, ASM, OBJ };
   Target target = Target::UNDEFINED;
