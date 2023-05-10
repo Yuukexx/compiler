@@ -16,6 +16,11 @@
 
 namespace spc {
 /* -------- syscall nodes -------- */
+/**
+ * @brief 生成代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回生成的值
+ */
 llvm::Value *SysCallNode::codegen(CodegenContext &context) {
   switch (routine->routine) {
     case SysRoutine::WRITELN:
@@ -168,6 +173,18 @@ llvm::Value *SysCallNode::codegen(CodegenContext &context) {
 }
 
 /* -------- type nodes -------- */
+/**
+ * @brief 将AST类型转换为LLVM类型
+ * @param type  AST中的类型
+ * @param context 代码生成上下文
+ * @return llvm::Type* 返回LLVM中对应的类型
+ * @retval context.builder.getInt1Ty() 布尔类型
+ * @retval context.builder.getInt32Ty() 整型
+ * @retval context.builder.getDoubleTy() 双精度浮点型
+ * @retval context.builder.getInt8Ty() 字符类型
+ * @retval context.builder.getVoidTy() 空类型
+ * @retval nullptr 不支持的类型
+ */
 static llvm::Type *llvm_type(Type type, CodegenContext &context) {
   switch (type) {
     case Type::BOOLEN:
@@ -184,6 +201,13 @@ static llvm::Type *llvm_type(Type type, CodegenContext &context) {
       return nullptr;
   }
 }
+/**
+ * @brief 将自定义类型转换为 LLVM IR 类型
+ * @param type 自定义类型
+ * @param length 数组类型的长度
+ * @param context 代码生成上下文
+ * @return llvm::Type* 对应的 LLVM IR 类型
+ */
 static llvm::Type *llvm_type(Type type, int length, CodegenContext &context) {
   return llvm::ArrayType::get(llvm_type(type, context), length);
 }
@@ -195,8 +219,23 @@ static llvm::Type *llvm_type(std::vector<std::shared_ptr<TypeNode>> types, Codeg
   return structType;
 }
 
+/**
+ * @brief 获取常量节点的 LLVM IR 类型
+ * @param context 代码生成上下文
+ * @return llvm::Type* 常量节点的 LLVM IR 类型
+ */
 llvm::Type *ConstValueNode::get_llvm_type(CodegenContext &context) const { return this->type->get_llvm_type(context); }
 
+/**
+ * @brief 获取类型节点的 LLVM IR 类型
+ * 如果是简单类型节点，则直接转换为 LLVM IR 类型。
+ * 如果是数组类型节点，则转换为 LLVM 数组类型。
+ * 如果是类型别名节点，则获取其全局别名节点，并返回其 LLVM IR 类型。
+ * 如果不是上述任何一种类型，则抛出 CodegenException 异常。
+ * @param context 代码生成上下文
+ * @return llvm::Type* 类型节点的 LLVM IR 类型
+ * @throw CodegenException 如果类型不支持，则抛出异常
+ */
 llvm::Type *TypeNode::get_llvm_type(CodegenContext &context) const {
   if (auto *simple_type = dynamic_cast<const SimpleTypeNode *>(this)) {
     return llvm_type(simple_type->type, context);
@@ -213,6 +252,14 @@ llvm::Type *TypeNode::get_llvm_type(CodegenContext &context) const {
   return nullptr;  // 这里永远不会运行
 }
 /* -------- routine call nodes -------- */
+/**
+ * @brief 生成过程调用语义节点对应LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回调用结果的 LLVM 值
+ * @remarks 该函数通过使用上下文模块中的函数名称查找函数并获取其参数数量，然后检查其与当前函数调用中传递的参数数量是否匹配。
+ * 如果不匹配，则会抛出异常。
+ * 接下来，它会通过循环对每个参数调用codegen方法并将其添加到值列表中。最后，使用上下文生成器对象调用函数，并将结果返回。
+ */
 llvm::Value *RoutineCallNode::codegen(CodegenContext &context) {
   auto *func = context.module->getFunction(identifier->name);
   if (func->arg_size() != args->children().size()) {
@@ -224,6 +271,15 @@ llvm::Value *RoutineCallNode::codegen(CodegenContext &context) {
   return context.builder.CreateCall(func, values);
 }
 /* -------- routine nodes -------- */
+
+/**
+ * @brief 生成函数语义节点对应的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回生成的LLVM IR值
+ * @remarks 该函数用于生成程序代码的LLVM IR。函数通过遍历代码树中的子节点生成常量、类型、变量和子程序，
+ * 之后创建一个名为"main"的函数作为程序的入口，并将代码树中的所有语句转换为该函数中的基本块，
+ * 最后返回生成的LLVM IR值。
+ */
 llvm::Value *ProgramNode::codegen(CodegenContext &context) {
   context.is_subroutine = false;
   head_list->const_list->codegen(context);
@@ -251,6 +307,11 @@ llvm::Value *ProgramNode::codegen(CodegenContext &context) {
   return nullptr;
 }
 
+/**
+ * @brief 生成子程序语义节点对应的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回生成的LLVM IR值
+ */
 llvm::Value *SubroutineNode::codegen(CodegenContext &context) {
   std::vector<llvm::Type *> llvmTypes;
   std::vector<std::string> names;
@@ -302,6 +363,11 @@ llvm::Value *SubroutineNode::codegen(CodegenContext &context) {
   return nullptr;
 }
 
+/**
+ * @brief 生成头部列表语义节点对应的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回生成的LLVM IR值
+ */
 llvm::Value *HeadListNode::codegen(CodegenContext &context) {
   const_list->codegen(context);
   type_list->codegen(context);
@@ -310,12 +376,22 @@ llvm::Value *HeadListNode::codegen(CodegenContext &context) {
   return nullptr;
 }
 
+/**
+ * @brief 生成子过程列表节点对应的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回生成的LLVM IR值
+ */
 llvm::Value *SubroutineListNode::codegen(CodegenContext &context) {
   for (auto &routine : children()) routine->codegen(context);
   return nullptr;
 }
 
 /* -------- identifier nodes -------- */
+/**
+ * @brief 获取标识符引用的指针
+ * @param context 代码生成上下文
+ * @return llvm::Value* 标识符引用的指针
+ */
 llvm::Value *IdentifierNode::get_ptr(CodegenContext &context) {
   auto value = context.symbolTable.getLocalSymbol(name);
   if (value == nullptr) value = context.symbolTable.getGlobalSymbol(name);
@@ -323,6 +399,11 @@ llvm::Value *IdentifierNode::get_ptr(CodegenContext &context) {
   return value->get_llvmptr();
 }
 
+/**
+ * @brief 获取数组元素的指针
+ * @param context 代码生成上下文
+ * @return llvm::Value* 数组元素的指针
+ */
 llvm::Value *ArrayRefNode::get_ptr(CodegenContext &context) {
   auto value = context.symbolTable.getLocalSymbol(name);
   if (value == nullptr) value = context.symbolTable.getGlobalSymbol(name);
@@ -331,6 +412,11 @@ llvm::Value *ArrayRefNode::get_ptr(CodegenContext &context) {
                                    std::vector<llvm::Value *>{context.builder.getInt32(0), get_index(context)});
 }
 
+/**
+ * @brief 获取数组下标
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回数组下标
+ */
 llvm::Value *ArrayRefNode::get_index(CodegenContext &context) {
   auto value = context.symbolTable.getLocalSymbol(name);
   if (value == nullptr) value = context.symbolTable.getGlobalSymbol(name);
@@ -340,6 +426,11 @@ llvm::Value *ArrayRefNode::get_index(CodegenContext &context) {
   return context.builder.CreateSub(i->codegen(context), context.builder.getInt32(bound.first));
 }
 
+/**
+ * @brief 获取记录结构体的指针
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回记录结构体的LLVM类型
+ */
 llvm::Value *StructRefNode::get_ptr(CodegenContext &context) {
   auto value = context.symbolTable.getLocalSymbol(name);
   if (value == nullptr) value = context.symbolTable.getGlobalSymbol(name);
@@ -349,7 +440,11 @@ llvm::Value *StructRefNode::get_ptr(CodegenContext &context) {
       std::vector<llvm::Value *>{context.builder.getInt32(0),
                                  context.builder.getInt32(cast_node<RecordTypeNode>(value->typeNode)->index[index])});
 }
-
+/**
+ * @brief 获取标识符的LLVM类型
+ * @param context 代码生成上下文
+ * @return llvm::Type* 返回标识符的LLVM类型
+ */
 llvm::Type *IdentifierNode::get_llvmtype(CodegenContext &context) {
   auto value = context.symbolTable.getLocalSymbol(name);
   if (value == nullptr) value = context.symbolTable.getGlobalSymbol(name);
@@ -357,11 +452,30 @@ llvm::Type *IdentifierNode::get_llvmtype(CodegenContext &context) {
   return value->get_llvmtype(context);
 }
 
+/**
+ * @brief 根据标识符引用获取对应的 LLVM 值的指针，并使用指针创建一个 load 指令生成 LLVM 值
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *IdentifierNode::codegen(CodegenContext &context) { return context.builder.CreateLoad(get_ptr(context)); }
-
+/**
+ * @brief 根据数组引用获取对应的 LLVM 值的指针，并使用指针创建一个 load 指令生成 LLVM 值
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *ArrayRefNode::codegen(CodegenContext &context) { return context.builder.CreateLoad(get_ptr(context)); }
+/**
+ * @brief 根据记录引用获取对应的 LLVM 值的指针，并使用指针创建一个 load 指令生成 LLVM 值
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *StructRefNode::codegen(CodegenContext &context) { return context.builder.CreateLoad(get_ptr(context)); }
 /* -------- stmt nodes -------- */
+/**
+ * @brief 生成赋值语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *AssignStmtNode::codegen(CodegenContext &context) {
   auto assignee = cast_node<LeftValueExprNode>(this->lhs);
   auto *lhs = assignee->get_ptr(context);
@@ -381,11 +495,20 @@ llvm::Value *AssignStmtNode::codegen(CodegenContext &context) {
   return nullptr;
 }
 
+/**
+ * @brief 生成过程调用语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *ProcStmtNode::codegen(CodegenContext &context) {
   proc_call->codegen(context);
   return nullptr;
 }
-
+/**
+ * @brief 生成if语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *IfStmtNode::codegen(CodegenContext &context) {
   llvm::Value *CondV = cond->codegen(context);
   CondV = context.builder.CreateICmpEQ(CondV, context.builder.getTrue(), "ifcond");
@@ -414,7 +537,11 @@ llvm::Value *IfStmtNode::codegen(CodegenContext &context) {
   context.builder.SetInsertPoint(MergeBB);
   return nullptr;
 }
-
+/**
+ * @brief 生成case语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *CaseStmtNode::codegen(CodegenContext &context) {
   llvm::Value *CondV = cond->codegen(context);
   llvm::Function *TheFunction = context.builder.GetInsertBlock()->getParent();
@@ -448,7 +575,16 @@ llvm::Value *CaseStmtNode::codegen(CodegenContext &context) {
   context.builder.SetInsertPoint(MergeBB);
   return nullptr;
 }
-
+/**
+ * @brief 将 LLVM 类型转换为字符串类型表示
+ * @param context 代码生成上下文
+ * @param type  LLVM 类型
+ * @return std::string 字符串类型表示
+ * @remarks 如果类型为 8 位整型，则返回 "char"；
+ * 如果类型为 32 位整型，则返回 "integer"；
+ * 如果类型为双精度浮点型，则返回 "double"；
+ * 否则返回空字符串。
+ */
 std::string type2string(CodegenContext &context, llvm::Type *type) {
   if (type->isIntegerTy(8))
     return "char";
@@ -458,7 +594,11 @@ std::string type2string(CodegenContext &context, llvm::Type *type) {
     return "double";
   return "";
 }
-
+/**
+ * @brief 生成循环语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *LoopStmtNode::codegen(CodegenContext &context) {
   if (type == LoopType::REPEAT) loop_stmt->codegen(context);
   llvm::Value *CondV = cond->codegen(context);
@@ -506,34 +646,84 @@ llvm::Value *LoopStmtNode::codegen(CodegenContext &context) {
   return nullptr;
 }
 
+/**
+ * @brief 生成复合语句的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *CompoundStmtNode::codegen(CodegenContext &context) {
   for (auto &child : children()) child->codegen(context);
   return nullptr;
 }
 
 /* -------- case node -------- */
+/**
+ * @brief 生成case节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *CaseNode::codegen(CodegenContext &context) { return nullptr; }
 
 /* -------- const value nodes -------- */
+/**
+ * @brief 生成字符串常量的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回字符串常量对应的全局变量指针
+ */
 llvm::Value *StringNode::codegen(CodegenContext &context) { return context.builder.CreateGlobalStringPtr(val); }
+
+/**
+ * @brief 生成布尔值常量的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回布尔型常量对应的值
+ */
 llvm::Value *BoolenNode::codegen(CodegenContext &context) {
   return val == true ? context.builder.getTrue() : context.builder.getFalse();
 }
+
+/**
+ * @brief 生成实数常量的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 返回实数常量对应的常量表达式指针
+ */
 llvm::Value *RealNode::codegen(CodegenContext &context) {
   auto *type = context.builder.getDoubleTy();
   return llvm::ConstantFP::get(type, val);
 }
+
+/**
+ * @brief 生成整数常量的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *IntegerNode::codegen(CodegenContext &context) {
   auto *type = context.builder.getInt32Ty();
   return llvm::ConstantInt::getSigned(type, val);
 }
+
+/**
+ * @brief 生成字符常量的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *CharNode::codegen(CodegenContext &context) { return context.builder.getInt8(static_cast<uint8_t>(val)); }
 
 /* -------- decl nodes -------- */
+/**
+ * @brief 生成常量列表的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *ConstListNode::codegen(CodegenContext &context) {
   for (auto &child : children()) child->codegen(context);
   return nullptr;
 }
+
+/**
+ * @brief 生成常量声明节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *ConstDeclNode::codegen(CodegenContext &context) {
   if (context.is_subroutine) {
     bool success = context.symbolTable.addLocalSymbol(name->name, value->type, true);
@@ -550,11 +740,21 @@ llvm::Value *ConstDeclNode::codegen(CodegenContext &context) {
   }
 }
 
+/**
+ * @brief 生成变量列表节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *VarListNode::codegen(CodegenContext &context) {
   for (auto &child : children()) child->codegen(context);
   return nullptr;
 }
 
+/**
+ * @brief 生成变量声明节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *VarDeclNode::codegen(CodegenContext &context) {
   if (context.is_subroutine)  //如果是子过程 分配临时变量
   {
@@ -570,11 +770,21 @@ llvm::Value *VarDeclNode::codegen(CodegenContext &context) {
   }
 }
 
+/**
+ * @brief 生成类型列表语义节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *TypeListNode::codegen(CodegenContext &context) {
   for (auto &child : children()) child->codegen(context);
   return nullptr;
 }
 
+/**
+ * @brief 生成类型定义节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *TypeDefNode::codegen(CodegenContext &context) {
   if (context.is_subroutine) {
     bool success = context.symbolTable.addLocalAlias(name->name, type);
@@ -587,6 +797,11 @@ llvm::Value *TypeDefNode::codegen(CodegenContext &context) {
 }
 
 /* -------- expr nodes -------- */
+/**
+ * @brief 生成表达式相关节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值
+ */
 llvm::Value *BinopExprNode::codegen(CodegenContext &context) {
   auto *lhs = this->lhs->codegen(context);
   auto *rhs = this->rhs->codegen(context);
@@ -764,6 +979,10 @@ llvm::Value *BinopExprNode::codegen(CodegenContext &context) {
     throw CodegenException("operator is invalid: " + to_string(op) + " between different types");
   }
 }
-
+/**
+ * @brief 生成函数表达式节点的LLVM IR代码
+ * @param context 代码生成上下文
+ * @return llvm::Value* 生成的 LLVM 值表示函数调用的值的指针
+ */
 llvm::Value *FuncExprNode::codegen(CodegenContext &context) { return func_call->codegen(context); }
 }  // namespace spc
