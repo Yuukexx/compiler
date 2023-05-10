@@ -1,3 +1,13 @@
+/**
+ * @file context.hpp
+ * @brief 代码生成上下文环境头文件,定义了用于代码生成的上下文环境类 CodegenContext，包含 LLVM IR 代码生成所需的一些信息，如符号表、优化标志等。
+ * @author 滕宇航 胡少卿 胡亦凡 于可欣 陈迁 黄卓琳 
+ * @version 1.0
+ * @date 2023-05-10
+ * 
+ * @copyright Copyright (c) 2023  北京邮电大学计算机学院2020211312班
+ * 
+ */
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
@@ -20,20 +30,25 @@
 
 #include "symbol.hpp"
 
-static llvm::LLVMContext llvm_context;
+static llvm::LLVMContext llvm_context; ///< 全局 LLVM 上下文
 
 namespace spc {
 struct TypeNode;  // 前置声明，因为类型信息需要类型节点 但类型节点隶属与AST，直接include会导致循环引用
 ///  代码生成的上下文环境 聚合了LLVM代码生成要用到的一些东西以及优化标志，符号表等
 struct CodegenContext final {
  public:
-  llvm::IRBuilder<> builder;
-  std::unique_ptr<llvm::Module> module;
-  std::unique_ptr<llvm::legacy::FunctionPassManager> fpm;
-  std::unique_ptr<llvm::legacy::PassManager> mpm;
-  SymbolTable symbolTable;
-  bool is_subroutine = false;
+  llvm::IRBuilder<> builder; ///< LLVM IR 生成器
+  std::unique_ptr<llvm::Module> module;///< LLVM 模块
+  std::unique_ptr<llvm::legacy::FunctionPassManager> fpm; ///< 函数级别的优化器
+  std::unique_ptr<llvm::legacy::PassManager> mpm; ///< 模块级别的优化器
+  SymbolTable symbolTable; ///< 符号表
+  bool is_subroutine = false;///< 标志当前是否处于子程序中
 
+  /**
+   * @brief 构造函数，初始化 CodegenContext 对象
+   * @param module_id 模块 ID
+   * @param optimization  是否开启优化
+   */
   CodegenContext(std::string module_id, bool optimization)
       : builder(llvm_context), module(std::make_unique<llvm::Module>(module_id, llvm_context)), symbolTable(this) {
     if (optimization) {
